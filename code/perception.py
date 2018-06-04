@@ -39,7 +39,7 @@ def rover_coords(binary_img):
     # Calculate pixel positions with reference to the rover position being at the 
     # center bottom of the image.  
     x_pixel = -(ypos - binary_img.shape[0]).astype(np.float)
-    y_pixel = -(xpos - binary_img.shape[1]/2 ).astype(np.float)
+    y_pixel = -(xpos - binary_img.shape[1]/2).astype(np.float)
     return x_pixel, y_pixel
 
 
@@ -48,6 +48,8 @@ def to_polar_coords(x_pixel, y_pixel):
     # Convert (x_pixel, y_pixel) to (distance, angle) 
     # in polar coordinates in rover space
     # Calculate distance to each pixel
+    steering_offset = 15
+    y_pixel = y_pixel + steering_offset
     dist = np.sqrt(x_pixel**2 + y_pixel**2)
     # Calculate angle away from vertical for each pixel
     angles = np.arctan2(y_pixel, x_pixel)
@@ -98,6 +100,7 @@ def perception_step(Rover):
     # TODO: 
     # NOTE: camera image is coming to you in Rover.img
     # 1) Define source and destination points for perspective transform
+    # square size is 10 x 10 pixel, dst is 1/2 of pixel size
     dst_size = 5 
     bottom_offset = 6
     source = np.float32([[14, 140], [301 ,140],[200, 96], [118, 96]])
@@ -119,7 +122,7 @@ def perception_step(Rover):
     Rover.vision_image[:,:,0] = thresh_obs
     Rover.vision_image[:,:,1] = thresh_rock * 255
     Rover.vision_image[:,:,2] = thresh_rov * 255
-    # 5) Convert map image pixel values to rover-centric coords
+    # 5) Convert map image pixel values to rover-centric coords, rotates rover origin by 90 deg
     x_rov, y_rov = rover_coords(thresh_rov)
     x_obs, y_obs = rover_coords(thresh_obs)
     if thresh_rock.any():
@@ -141,7 +144,7 @@ def perception_step(Rover):
         #          Rover.worldmap[rock_y_world, rock_x_world, 1] += 1
         #          Rover.worldmap[navigable_y_world, navigable_x_world, 2] += 1
     
-    if abs(Rover.roll-360) < 0.5 and abs(Rover.pitch-360) < 0.5:
+    if abs(Rover.roll-360) < 1.25 and abs(Rover.pitch-360) < 1.25:
         Rover.worldmap[y_rov_world,x_rov_world,2] += 1
     
     Rover.worldmap[y_obs_world,x_obs_world,0] = 255
