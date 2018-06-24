@@ -48,11 +48,15 @@ def to_polar_coords(x_pixel, y_pixel):
     # Convert (x_pixel, y_pixel) to (distance, angle) 
     # in polar coordinates in rover space
     # Calculate distance to each pixel
-    steering_offset = 15
-    y_pixel = y_pixel + steering_offset
+    y_pixel = y_pixel
     dist = np.sqrt(x_pixel**2 + y_pixel**2)
     # Calculate angle away from vertical for each pixel
-    angles = np.arctan2(y_pixel, x_pixel)
+    y_pixel_pos = y_pixel > 0
+    x_pixel_pos = x_pixel > 0
+    angles = np.arctan2(y_pixel, x_pixel) + (0*np.pi/180)
+    # Try changing this to only measure the average positive or negative values
+    # in order to keep the rover driving on the left or right side of the road
+    # respectively, an offset needs to be added
     return dist, angles
 
 # Define a function to map rover space pixels to world space
@@ -111,10 +115,12 @@ def perception_step(Rover):
                   ])
     # 2) Apply perspective transform
     warped_image, masked_image = perspect_transform(Rover.img, source, destination)
+    
     # 3) Apply color threshold to identify navigable terrain/obstacles/rock samples
     thresh_rov = color_thresh(warped_image)
     thresh_obs = np.absolute(thresh_rov-1) * masked_image
     thresh_rock = find_rock(warped_image)
+    
     # 4) Update Rover.vision_image (this will be displayed on left side of screen)
         # Example: Rover.vision_image[:,:,0] = obstacle color-thresholded binary image
         #          Rover.vision_image[:,:,1] = rock_sample color-thresholded binary image
@@ -122,6 +128,7 @@ def perception_step(Rover):
     Rover.vision_image[:,:,0] = thresh_obs
     Rover.vision_image[:,:,1] = thresh_rock * 255
     Rover.vision_image[:,:,2] = thresh_rov * 255
+    
     # 5) Convert map image pixel values to rover-centric coords, rotates rover origin by 90 deg
     x_rov, y_rov = rover_coords(thresh_rov)
     x_obs, y_obs = rover_coords(thresh_obs)
@@ -139,12 +146,13 @@ def perception_step(Rover):
     x_obs_world, y_obs_world = pix_to_world(x_obs,y_obs,xpos,ypos,yaw,world_size,scale)
     if thresh_rock.any():
         x_rock_world, y_rock_world = pix_to_world(x_rock,y_rock,xpos,ypos,yaw,world_size,scale)
+    
     # 7) Update Rover worldmap (to be displayed on right side of screen)
         # Example: Rover.worldmap[obstacle_y_world, obstacle_x_world, 0] += 1
         #          Rover.worldmap[rock_y_world, rock_x_world, 1] += 1
         #          Rover.worldmap[navigable_y_world, navigable_x_world, 2] += 1
     
-    if abs(Rover.roll-360) < 1.25 and abs(Rover.pitch-360) < 1.25:
+    if abs(Rover.roll-360) < 1.25 and abs(Rover.pitch-360) < 1.50:
         Rover.worldmap[y_rov_world,x_rov_world,2] += 1
     
     Rover.worldmap[y_obs_world,x_obs_world,0] = 255
@@ -160,6 +168,7 @@ def perception_step(Rover):
     # Update Rover pixel distances and angles
         # Rover.nav_dists = rover_centric_pixel_distances
         # Rover.nav_angles = rover_centric_angles
+  
     Rover.nav_dists, Rover.nav_angles = to_polar_coords(x_rov,y_rov)    
     
     return Rover
